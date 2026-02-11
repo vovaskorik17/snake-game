@@ -176,28 +176,42 @@
         if (bestEl) bestEl.textContent = best;
       }
 
-      function sendScoreToBot() {
+      var BOT_USERNAME = 'marafet_detailing_bot';
+
+      function sendScoreViaLink() {
+        var url = 'https://t.me/' + BOT_USERNAME + '?start=score_' + score;
         if (window.Telegram && window.Telegram.WebApp) {
           try {
-            window.Telegram.WebApp.sendData(JSON.stringify({ score: score }));
-          } catch (e) {}
+            window.Telegram.WebApp.openLink(url);
+          } catch (e) {
+            window.location.href = url;
+          }
+        } else {
+          window.location.href = url;
+        }
+      }
+
+      function sendScoreToBotAndClose() {
+        sendScoreViaLink();
+        if (window.Telegram && window.Telegram.WebApp) {
+          try { window.Telegram.WebApp.close(); } catch (e) {}
+        }
+      }
+
+      function sendScoreToBotAndRestart() {
+        sendScoreViaLink();
+        if (window.Telegram && window.Telegram.WebApp) {
+          try { window.Telegram.WebApp.close(); } catch (e) {}
         }
       }
 
       document.getElementById('sendScore').onclick = function() {
-        sendScoreToBot();
+        sendScoreToBotAndClose();
       };
 
       document.getElementById('restart').onclick = function() {
-        sendScoreToBot();
-        document.getElementById('over').classList.remove('show');
-        snake = [{ x: 10, y: 10 }];
-        dx = dy = 0;
-        score = 0;
-        running = true;
-        placeFood();
-        draw();
-        requestAnimationFrame(step);
+        sendScoreViaLink();
+        try { if (window.Telegram && window.Telegram.WebApp) window.Telegram.WebApp.close(); } catch (e) {}
       };
 
       document.addEventListener('keydown', function(e) {
