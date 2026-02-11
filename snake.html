@@ -18,8 +18,8 @@
       color: #eee;
       touch-action: none;
     }
-    h1 { font-size: 1.5rem; margin-bottom: 8px; }
-    .score-line { margin-bottom: 8px; font-size: 1rem; }
+    h1 { font-size: 1.8rem; margin-bottom: 8px; }
+    .score-line { margin-bottom: 4px; font-size: 1rem; }
     #canvas {
       display: block;
       background: #16213e;
@@ -30,18 +30,26 @@
       position: fixed;
       inset: 0;
       background: rgba(0,0,0,0.85);
-      display: none;
+      display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       gap: 16px;
+      opacity: 0;
+      transform: scale(0.9);
+      pointer-events: none;
+      transition: opacity 0.25s ease, transform 0.25s ease;
     }
-    .over.show { display: flex; }
-    .over h2 { font-size: 1.5rem; }
+    .over.show {
+      opacity: 1;
+      transform: scale(1);
+      pointer-events: auto;
+    }
+    .over h2 { font-size: 2rem; }
     .over .final-score { font-size: 1.2rem; color: #4ade80; }
     button {
-      padding: 12px 24px;
-      font-size: 1rem;
+      padding: 12px 28px;
+      font-size: 1.05rem;
       border: none;
       border-radius: 8px;
       background: #4ade80;
@@ -50,15 +58,18 @@
       font-weight: bold;
     }
     button:active { opacity: 0.9; }
+    #sendScore { background: #3b82f6; color: #fff; }
   </style>
 </head>
 <body>
   <h1>🐍 Змейка</h1>
   <div class="score-line">Счёт: <span id="score">0</span></div>
+  <div class="score-line">Лучший счёт: <span id="best">0</span></div>
   <canvas id="canvas" width="400" height="400"></canvas>
   <div class="over" id="over">
     <h2>Игра окончена</h2>
     <div class="final-score">Счёт: <span id="finalScore">0</span></div>
+    <button id="sendScore">Игра окончена</button>
     <button id="restart">Играть снова</button>
   </div>
 
@@ -73,9 +84,10 @@
       let food = { x: 5, y: 5 };
       let dx = 0, dy = 0;
       let score = 0;
+      let best = 0;
       let running = true;
       let lastMove = 0;
-      const SPEED = 120;
+      const BASE_SPEED = 140;
 
       function randCell() {
         return { x: Math.floor(Math.random() * COLS), y: Math.floor(Math.random() * ROWS) };
@@ -85,6 +97,22 @@
         do {
           food = randCell();
         } while (snake.some(s => s.x === food.x && s.y === food.y));
+      }
+
+      function loadBest() {
+        try {
+          if (window.localStorage) {
+            const v = parseInt(localStorage.getItem('snake_best') || '0', 10);
+            if (!isNaN(v)) best = v;
+          }
+        } catch (e) {}
+        const bestEl = document.getElementById('best');
+        if (bestEl) bestEl.textContent = best;
+      }
+
+      function currentSpeed() {
+        const bonus = Math.floor(score / 30) * 10;
+        return Math.max(60, BASE_SPEED - bonus);
       }
 
       function draw() {
@@ -108,7 +136,7 @@
         if (!running) return;
         const now = Date.now();
         if (dx !== 0 || dy !== 0) {
-          if (now - lastMove >= SPEED) {
+          if (now - lastMove >= currentSpeed()) {
             lastMove = now;
             const head = { x: snake[0].x + dx, y: snake[0].y + dy };
             if (head.x < 0 || head.x >= COLS || head.y < 0 || head.y >= ROWS) {
@@ -136,6 +164,19 @@
         running = false;
         document.getElementById('finalScore').textContent = score;
         document.getElementById('over').classList.add('show');
+        if (score > best) {
+          best = score;
+          try {
+            if (window.localStorage) {
+              localStorage.setItem('snake_best', String(best));
+            }
+          } catch (e) {}
+        }
+        const bestEl = document.getElementById('best');
+        if (bestEl) bestEl.textContent = best;
+      }
+
+      function sendScoreToBot() {
         if (window.Telegram && window.Telegram.WebApp) {
           try {
             window.Telegram.WebApp.sendData(JSON.stringify({ score: score }));
@@ -143,7 +184,12 @@
         }
       }
 
+      document.getElementById('sendScore').onclick = function() {
+        sendScoreToBot();
+      };
+
       document.getElementById('restart').onclick = function() {
+        sendScoreToBot();
         document.getElementById('over').classList.remove('show');
         snake = [{ x: 10, y: 10 }];
         dx = dy = 0;
@@ -179,6 +225,7 @@
       }, { passive: false });
 
       placeFood();
+      loadBest();
       draw();
       requestAnimationFrame(step);
     })();
