@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Запись на мойку — Марафет Детейлинг</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--tg-theme-bg-color, #1a1a2e);
+      color: var(--tg-theme-text-color, #fff);
+      min-height: 100vh;
+      padding: 16px;
+      padding-bottom: 24px;
+    }
+    h1 {
+      font-size: 1.4rem;
+      margin-bottom: 16px;
+      text-align: center;
+    }
+    .section {
+      margin-bottom: 20px;
+    }
+    .section-title {
+      font-size: 0.9rem;
+      opacity: 0.9;
+      margin-bottom: 8px;
+    }
+    .services {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .service-btn {
+      padding: 12px 16px;
+      border-radius: 12px;
+      border: 2px solid var(--tg-theme-button-color, #4ade80);
+      background: var(--tg-theme-secondary-bg-color, #16213e);
+      color: var(--tg-theme-text-color);
+      font-size: 1rem;
+      cursor: pointer;
+      text-align: left;
+      transition: background 0.2s;
+    }
+    .service-btn:hover, .service-btn.selected {
+      background: var(--tg-theme-button-color, #4ade80);
+      color: var(--tg-theme-button-text-color, #1a1a2e);
+    }
+    .service-price { font-size: 0.85rem; opacity: 0.9; margin-top: 2px; }
+    .dates {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+    .date-btn {
+      padding: 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.3);
+      background: var(--tg-theme-secondary-bg-color, #16213e);
+      color: var(--tg-theme-text-color);
+      font-size: 0.85rem;
+      cursor: pointer;
+      text-align: center;
+    }
+    .date-btn:hover, .date-btn.selected {
+      background: var(--tg-theme-button-color, #4ade80);
+      color: var(--tg-theme-button-text-color, #1a1a2e);
+      border-color: transparent;
+    }
+    .times {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+    .time-btn {
+      padding: 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.3);
+      background: var(--tg-theme-secondary-bg-color, #16213e);
+      color: var(--tg-theme-text-color);
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+    .time-btn:hover, .time-btn.selected {
+      background: var(--tg-theme-button-color, #4ade80);
+      color: var(--tg-theme-button-text-color, #1a1a2e);
+      border-color: transparent;
+    }
+    .time-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .submit-btn {
+      width: 100%;
+      padding: 14px;
+      margin-top: 20px;
+      border-radius: 12px;
+      border: none;
+      background: var(--tg-theme-button-color, #4ade80);
+      color: var(--tg-theme-button-text-color, #1a1a2e);
+      font-size: 1.1rem;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .summary {
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.08);
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>Запись на мойку</h1>
+
+  <div class="section">
+    <div class="section-title">1. Выберите услугу</div>
+    <div class="services" id="services"></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">2. Выберите дату</div>
+    <div class="dates" id="dates"></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">3. Выберите время</div>
+    <div class="times" id="times"></div>
+  </div>
+
+  <div class="summary" id="summary" style="display:none;"></div>
+  <button class="submit-btn" id="submit" disabled>Записаться и перейти к оплате</button>
+
+  <script>
+    (function() {
+      var WebApp = window.Telegram && window.Telegram.WebApp;
+      if (WebApp) WebApp.ready();
+      if (WebApp && WebApp.expand) WebApp.expand();
+
+      var services = [
+        { id: '2', name: 'Комплексная мойка', price_rub: 1500 },
+        { id: '3', name: 'Полировка кузова', price_rub: 5000 },
+        { id: '4', name: 'Детейлинг химчистка салона', price_rub: 7000 }
+      ];
+
+      var selected = { service: null, date: null, time: null };
+
+      function renderServices() {
+        var html = '';
+        services.forEach(function(s) {
+          html += '<button class="service-btn" data-id="' + s.id + '" data-name="' + s.name.replace(/"/g, '&quot;') + '" data-price="' + s.price_rub + '">' +
+            s.name + '<div class="service-price">' + s.price_rub + ' ₽</div></button>';
+        });
+        document.getElementById('services').innerHTML = html;
+        document.querySelectorAll('.service-btn').forEach(function(btn) {
+          btn.onclick = function() {
+            document.querySelectorAll('.service-btn').forEach(function(b) { b.classList.remove('selected'); });
+            btn.classList.add('selected');
+            selected.service = { id: btn.dataset.id, name: btn.dataset.name, price_rub: parseInt(btn.dataset.price, 10) };
+            updateSummary();
+          };
+        });
+      }
+
+      function renderDates() {
+        var html = '';
+        var d = new Date();
+        for (var i = 0; i < 14; i++) {
+          var day = new Date(d);
+          day.setDate(d.getDate() + i);
+          var str = day.getDate() + '.' + (day.getMonth() + 1);
+          var iso = day.getFullYear() + '-' + String(day.getMonth() + 1).padStart(2, '0') + '-' + String(day.getDate()).padStart(2, '0');
+          html += '<button class="date-btn" data-date="' + iso + '">' + str + '</button>';
+        }
+        document.getElementById('dates').innerHTML = html;
+        document.querySelectorAll('.date-btn').forEach(function(btn) {
+          btn.onclick = function() {
+            document.querySelectorAll('.date-btn').forEach(function(b) { b.classList.remove('selected'); });
+            btn.classList.add('selected');
+            selected.date = btn.dataset.date;
+            updateSummary();
+          };
+        });
+      }
+
+      function renderTimes() {
+        var html = '';
+        for (var h = 9; h <= 18; h++) {
+          for (var m = 0; m < 60; m += 30) {
+            if (h === 18 && m > 0) break;
+            var t = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+            html += '<button class="time-btn" data-time="' + t + '">' + t + '</button>';
+          }
+        }
+        document.getElementById('times').innerHTML = html;
+        document.querySelectorAll('.time-btn').forEach(function(btn) {
+          btn.onclick = function() {
+            document.querySelectorAll('.time-btn').forEach(function(b) { b.classList.remove('selected'); });
+            btn.classList.add('selected');
+            selected.time = btn.dataset.time;
+            updateSummary();
+          };
+        });
+      }
+
+      function updateSummary() {
+        var s = document.getElementById('summary');
+        if (selected.service && selected.date && selected.time) {
+          s.style.display = 'block';
+          s.textContent = selected.service.name + ' — ' + selected.service.price_rub + ' ₽, ' + selected.date + ' в ' + selected.time;
+          document.getElementById('submit').disabled = false;
+        } else {
+          s.style.display = 'none';
+          document.getElementById('submit').disabled = true;
+        }
+      }
+
+      document.getElementById('submit').onclick = function() {
+        if (!selected.service || !selected.date || !selected.time) return;
+        var payload = {
+          action: 'booking',
+          service_id: selected.service.id,
+          service_name: selected.service.name,
+          price_rub: selected.service.price_rub,
+          date: selected.date,
+          time: selected.time
+        };
+        if (WebApp && WebApp.sendData) {
+          WebApp.sendData(JSON.stringify(payload));
+        } else {
+          alert('Вы записаны: ' + selected.service.name + ', ' + selected.date + ' ' + selected.time + '. Вернитесь в бота для оплаты.');
+        }
+      };
+
+      renderServices();
+      renderDates();
+      renderTimes();
+    })();
+  </script>
+</body>
+</html>
