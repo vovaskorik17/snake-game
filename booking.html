@@ -127,25 +127,25 @@
   </div>
 
   <div class="section">
-    <div class="section-title">2. Выберите дату</div>
+    <div class="section-title">2. Данные автомобиля (обязательно)</div>
+    <div class="input-row">
+      <label for="car_plate">Гос. номер</label>
+      <input type="text" id="car_plate" placeholder="Например: А123БВ77" maxlength="20" autocomplete="off">
+    </div>
+    <div class="input-row">
+      <label for="car_model">Марка и модель</label>
+      <input type="text" id="car_model" placeholder="Например: Toyota Camry" maxlength="80" autocomplete="off">
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">3. Выберите дату</div>
     <div class="dates" id="dates"></div>
   </div>
 
   <div class="section">
-    <div class="section-title">3. Выберите время</div>
+    <div class="section-title">4. Выберите время</div>
     <div class="times" id="times"></div>
-  </div>
-
-  <div class="section">
-    <div class="section-title">4. Данные автомобиля</div>
-    <div class="input-row">
-      <label for="car_plate">Гос. номер</label>
-      <input type="text" id="car_plate" placeholder="А123БВ77" maxlength="20" autocomplete="off">
-    </div>
-    <div class="input-row">
-      <label for="car_model">Марка и модель</label>
-      <input type="text" id="car_model" placeholder="Toyota Camry" maxlength="80" autocomplete="off">
-    </div>
   </div>
 
   <div class="summary" id="summary" style="display:none;"></div>
