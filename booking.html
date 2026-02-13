@@ -152,7 +152,8 @@
       function openBookingViaLink() {
         var startParam = buildBookingStartParam();
         if (!startParam) return false;
-        var link = 'https://t.me/' + botUsername + '?start=' + encodeURIComponent(startParam);
+        var startParamEnc = startParam.replace(/ /g, '_');
+        var link = 'https://t.me/' + botUsername + '?start=' + startParamEnc;
         if (WebApp && typeof WebApp.openTelegramLink === 'function') {
           try {
             WebApp.openTelegramLink(link);
