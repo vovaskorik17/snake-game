@@ -165,7 +165,10 @@
       function buildBookingStartParam() {
         if (!selected.service || !selected.date || !selected.time) return '';
         var timePart = selected.time.replace(':', '-');
-        return 'book_' + selected.date + '_' + timePart + '_' + selected.service.id;
+        var plate = (selected.car_plate || '').trim().replace(/\s/g, '').substring(0, 9);
+        var model = (selected.car_model || '').trim().replace(/\s+/g, '_').substring(0, 19);
+        var car = plate + '~' + model;
+        return 'book_' + selected.date + '_' + timePart + '_' + selected.service.id + '_' + car;
       }
 
       function openBookingViaLink() {
