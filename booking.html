@@ -140,10 +140,31 @@
         try { WebApp.ready(); } catch (e) {}
         try { if (WebApp.expand) WebApp.expand(); } catch (e) {}
       }
+      var urlParams = new URLSearchParams(window.location.search);
+      var botUsername = urlParams.get('bot') || 'marafet_detailing_bot';
+
+      function buildBookingStartParam() {
+        if (!selected.service || !selected.date || !selected.time) return '';
+        var timePart = selected.time.replace(':', '-');
+        return 'book_' + selected.date + '_' + timePart + '_' + selected.service.id;
+      }
+
+      function openBookingViaLink() {
+        var startParam = buildBookingStartParam();
+        if (!startParam) return false;
+        var link = 'https://t.me/' + botUsername + '?start=' + encodeURIComponent(startParam);
+        if (WebApp && typeof WebApp.openTelegramLink === 'function') {
+          try {
+            WebApp.openTelegramLink(link);
+            return true;
+          } catch (e) { return false; }
+        }
+        window.open(link, '_blank');
+        return true;
+      }
 
       function sendBookingData() {
         if (!selected.service || !selected.date || !selected.time) return false;
-        if (!WebApp || typeof WebApp.sendData !== 'function') return false;
         var payload = {
           action: 'booking',
           service_id: selected.service.id,
@@ -152,16 +173,19 @@
           date: selected.date,
           time: selected.time
         };
-        try {
-          WebApp.sendData(JSON.stringify(payload));
-          return true;
-        } catch (e) { return false; }
+        if (WebApp && typeof WebApp.sendData === 'function') {
+          try {
+            WebApp.sendData(JSON.stringify(payload));
+            return true;
+          } catch (e) { return false; }
+        }
+        return false;
       }
 
       var services = [
         { id: 'wash_sedan', name: 'Комплексная мойка (седаны и кроссоверы)', price_rub: 2500 },
-        { id: 'wash_large', name: 'Мойка для больших кроссоверов и джипов', price_rub: 3000 },
-        { id: 'wash_pickup', name: 'Мойка для пикапов', price_rub: 3500 }
+        { id: 'wash_large', name: 'Комплексная мойка для больших кроссоверов и джипов', price_rub: 3000 },
+        { id: 'wash_pickup', name: 'Комплексная мойка для пикапов', price_rub: 3500 }
       ];
 
       var selected = { service: null, date: null, time: null };
@@ -208,12 +232,25 @@
             document.querySelectorAll('.date-btn').forEach(function(b) { b.classList.remove('selected'); });
             btn.classList.add('selected');
             selected.date = btn.dataset.date;
+            selected.time = null;
+            renderTimes(selected.date);
             updateSummary();
           };
         });
       }
 
-      function renderTimes() {
+      function isSlotInPast(selectedDate, timeStr) {
+        if (!selectedDate) return false;
+        var now = new Date();
+        var today = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
+        if (selectedDate !== today) return false;
+        var parts = timeStr.split(':');
+        var slotMin = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+        var currentMin = now.getHours() * 60 + now.getMinutes();
+        return slotMin < currentMin;
+      }
+
+      function renderTimes(selectedDate) {
         var html = '';
         var slots = [];
         for (var h = 10; h <= 17; h++) {
@@ -221,10 +258,12 @@
           if (h < 17) slots.push(String(h).padStart(2, '0') + ':30');
         }
         slots.forEach(function(t) {
-          html += '<button class="time-btn" data-time="' + t + '">' + t + '</button>';
+          var disabled = isSlotInPast(selectedDate, t);
+          html += '<button class="time-btn" data-time="' + t + '"' + (disabled ? ' disabled' : '') + '>' + t + '</button>';
         });
         document.getElementById('times').innerHTML = html;
         document.querySelectorAll('.time-btn').forEach(function(btn) {
+          if (btn.disabled) return;
           btn.onclick = function() {
             document.querySelectorAll('.time-btn').forEach(function(b) { b.classList.remove('selected'); });
             btn.classList.add('selected');
@@ -257,17 +296,6 @@
         }
       }
 
-      if (WebApp && WebApp.MainButton) {
-        try {
-          WebApp.MainButton.onClick(function() {
-            if (sendBookingData()) WebApp.MainButton.showProgress();
-          });
-        } catch (e) {}
-      }
-
-      var submitBtn = document.getElementById('submit');
-      var submitError = document.getElementById('submit-error');
-      function hideError() { submitError.style.display = 'none'; submitError.textContent = ''; }
       function doSubmit() {
         if (!selected.service || !selected.date || !selected.time) {
           submitError.textContent = 'Выберите услугу, дату и время.';
@@ -275,13 +303,26 @@
           return;
         }
         hideError();
-        if (sendBookingData()) {
-          submitBtn.disabled = true;
-          submitBtn.textContent = 'Отправка...';
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Отправка...';
+        if (WebApp && WebApp.MainButton) try { WebApp.MainButton.showProgress(); } catch (e) {}
+        if (openBookingViaLink()) {
+          if (WebApp && WebApp.close) try { WebApp.close(); } catch (e) {}
         } else {
-          submitError.textContent = 'Откройте форму через бота в Telegram (кнопка «Запись на мойку») — тогда запись отправится.';
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Записаться и перейти к оплате';
+          submitError.textContent = 'Откройте форму через бота в Telegram.';
           submitError.style.display = 'block';
         }
+      }
+
+      var submitBtn = document.getElementById('submit');
+      var submitError = document.getElementById('submit-error');
+      function hideError() { submitError.style.display = 'none'; submitError.textContent = ''; }
+      if (WebApp && WebApp.MainButton) {
+        try {
+          WebApp.MainButton.onClick(function() { doSubmit(); });
+        } catch (e) {}
       }
       submitBtn.addEventListener('click', function(e) {
         e.preventDefault();
@@ -294,7 +335,7 @@
 
       renderServices();
       renderDates();
-      renderTimes();
+      renderTimes(null);
     })();
   </script>
 </body>
