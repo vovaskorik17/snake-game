@@ -89,6 +89,13 @@
       border-color: transparent;
     }
     .time-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .input-row { margin-bottom: 10px; }
+    .input-row label { display: block; font-size: 0.85rem; opacity: 0.9; margin-bottom: 4px; }
+    .input-row input {
+      width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.3);
+      background: var(--tg-theme-secondary-bg-color, #16213e); color: var(--tg-theme-text-color);
+      font-size: 1rem; box-sizing: border-box;
+    }
     .submit-btn {
       width: 100%;
       padding: 14px;
@@ -127,6 +134,18 @@
   <div class="section">
     <div class="section-title">3. Выберите время</div>
     <div class="times" id="times"></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">4. Данные автомобиля</div>
+    <div class="input-row">
+      <label for="car_plate">Гос. номер</label>
+      <input type="text" id="car_plate" placeholder="А123БВ77" maxlength="20" autocomplete="off">
+    </div>
+    <div class="input-row">
+      <label for="car_model">Марка и модель</label>
+      <input type="text" id="car_model" placeholder="Toyota Camry" maxlength="80" autocomplete="off">
+    </div>
   </div>
 
   <div class="summary" id="summary" style="display:none;"></div>
@@ -172,7 +191,9 @@
           service_name: selected.service.name,
           price_rub: selected.service.price_rub,
           date: selected.date,
-          time: selected.time
+          time: selected.time,
+          car_plate: (selected.car_plate || '').trim(),
+          car_model: (selected.car_model || '').trim()
         };
         if (WebApp && typeof WebApp.sendData === 'function') {
           try {
@@ -189,7 +210,7 @@
         { id: 'wash_pickup', name: 'Комплексная мойка для пикапов', price_rub: 3500 }
       ];
 
-      var selected = { service: null, date: null, time: null };
+      var selected = { service: null, date: null, time: null, car_plate: '', car_model: '' };
 
       var monthNames = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
       function formatDateDisplay(isoDate) {
@@ -276,10 +297,11 @@
 
       function updateSummary() {
         var s = document.getElementById('summary');
-        var allSelected = selected.service && selected.date && selected.time;
+        var carOk = (selected.car_plate || '').trim().length > 0 && (selected.car_model || '').trim().length > 0;
+        var allSelected = selected.service && selected.date && selected.time && carOk;
         if (allSelected) {
           s.style.display = 'block';
-          s.textContent = selected.service.name + ' — ' + selected.service.price_rub + ' ₽, ' + formatDateDisplay(selected.date) + ' в ' + selected.time;
+          s.textContent = selected.service.name + ' — ' + selected.service.price_rub + ' ₽, ' + formatDateDisplay(selected.date) + ' в ' + selected.time + ', ' + (selected.car_plate || '').trim() + ' ' + (selected.car_model || '').trim();
           document.getElementById('submit').disabled = false;
           if (typeof hideError === 'function') hideError();
           if (WebApp && WebApp.MainButton) {
@@ -298,8 +320,14 @@
       }
 
       function doSubmit() {
+        var carOk = (selected.car_plate || '').trim().length > 0 && (selected.car_model || '').trim().length > 0;
         if (!selected.service || !selected.date || !selected.time) {
           submitError.textContent = 'Выберите услугу, дату и время.';
+          submitError.style.display = 'block';
+          return;
+        }
+        if (!carOk) {
+          submitError.textContent = 'Укажите гос. номер и марку/модель автомобиля.';
           submitError.style.display = 'block';
           return;
         }
@@ -333,6 +361,9 @@
         e.preventDefault();
         doSubmit();
       });
+
+      document.getElementById('car_plate').oninput = function() { selected.car_plate = this.value; updateSummary(); };
+      document.getElementById('car_model').oninput = function() { selected.car_model = this.value; updateSummary(); };
 
       renderServices();
       renderDates();
