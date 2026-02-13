@@ -139,12 +139,21 @@
       if (WebApp && WebApp.expand) WebApp.expand();
 
       var services = [
-        { id: '2', name: 'Комплексная мойка', price_rub: 1500 },
-        { id: '3', name: 'Полировка кузова', price_rub: 5000 },
-        { id: '4', name: 'Детейлинг химчистка салона', price_rub: 7000 }
+        { id: 'wash_sedan', name: 'Комплексная мойка (седаны и кроссоверы)', price_rub: 2500 },
+        { id: 'wash_large', name: 'Мойка для больших кроссоверов и джипов', price_rub: 3000 },
+        { id: 'wash_pickup', name: 'Мойка для пикапов', price_rub: 3500 }
       ];
 
       var selected = { service: null, date: null, time: null };
+
+      var monthNames = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+      function formatDateDisplay(isoDate) {
+        var parts = isoDate.split('-');
+        if (parts.length !== 3) return isoDate;
+        var day = parseInt(parts[2], 10);
+        var month = parseInt(parts[1], 10) - 1;
+        return day + ' ' + monthNames[month];
+      }
 
       function renderServices() {
         var html = '';
@@ -169,8 +178,8 @@
         for (var i = 0; i < 14; i++) {
           var day = new Date(d);
           day.setDate(d.getDate() + i);
-          var str = day.getDate() + '.' + (day.getMonth() + 1);
           var iso = day.getFullYear() + '-' + String(day.getMonth() + 1).padStart(2, '0') + '-' + String(day.getDate()).padStart(2, '0');
+          var str = formatDateDisplay(iso);
           html += '<button class="date-btn" data-date="' + iso + '">' + str + '</button>';
         }
         document.getElementById('dates').innerHTML = html;
@@ -186,13 +195,14 @@
 
       function renderTimes() {
         var html = '';
-        for (var h = 9; h <= 18; h++) {
-          for (var m = 0; m < 60; m += 30) {
-            if (h === 18 && m > 0) break;
-            var t = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
-            html += '<button class="time-btn" data-time="' + t + '">' + t + '</button>';
-          }
+        var slots = [];
+        for (var h = 10; h <= 17; h++) {
+          slots.push(String(h).padStart(2, '0') + ':00');
+          if (h < 17) slots.push(String(h).padStart(2, '0') + ':30');
         }
+        slots.forEach(function(t) {
+          html += '<button class="time-btn" data-time="' + t + '">' + t + '</button>';
+        });
         document.getElementById('times').innerHTML = html;
         document.querySelectorAll('.time-btn').forEach(function(btn) {
           btn.onclick = function() {
@@ -208,7 +218,7 @@
         var s = document.getElementById('summary');
         if (selected.service && selected.date && selected.time) {
           s.style.display = 'block';
-          s.textContent = selected.service.name + ' — ' + selected.service.price_rub + ' ₽, ' + selected.date + ' в ' + selected.time;
+          s.textContent = selected.service.name + ' — ' + selected.service.price_rub + ' ₽, ' + formatDateDisplay(selected.date) + ' в ' + selected.time;
           document.getElementById('submit').disabled = false;
         } else {
           s.style.display = 'none';
