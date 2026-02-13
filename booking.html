@@ -130,13 +130,33 @@
   </div>
 
   <div class="summary" id="summary" style="display:none;"></div>
-  <button class="submit-btn" id="submit" disabled>Записаться и перейти к оплате</button>
+  <button type="button" class="submit-btn" id="submit" disabled>Записаться и перейти к оплате</button>
+  <div id="submit-error" style="display:none; margin-top:12px; padding:12px; border-radius:10px; background:rgba(255,100,100,0.2); color:#ff6b6b; font-size:0.9rem;"></div>
 
   <script>
     (function() {
-      var WebApp = window.Telegram && window.Telegram.WebApp;
-      if (WebApp) WebApp.ready();
-      if (WebApp && WebApp.expand) WebApp.expand();
+      var WebApp = (window.Telegram && window.Telegram.WebApp) || null;
+      if (WebApp) {
+        try { WebApp.ready(); } catch (e) {}
+        try { if (WebApp.expand) WebApp.expand(); } catch (e) {}
+      }
+
+      function sendBookingData() {
+        if (!selected.service || !selected.date || !selected.time) return false;
+        if (!WebApp || typeof WebApp.sendData !== 'function') return false;
+        var payload = {
+          action: 'booking',
+          service_id: selected.service.id,
+          service_name: selected.service.name,
+          price_rub: selected.service.price_rub,
+          date: selected.date,
+          time: selected.time
+        };
+        try {
+          WebApp.sendData(JSON.stringify(payload));
+          return true;
+        } catch (e) { return false; }
+      }
 
       var services = [
         { id: 'wash_sedan', name: 'Комплексная мойка (седаны и кроссоверы)', price_rub: 2500 },
@@ -216,32 +236,61 @@
 
       function updateSummary() {
         var s = document.getElementById('summary');
-        if (selected.service && selected.date && selected.time) {
+        var allSelected = selected.service && selected.date && selected.time;
+        if (allSelected) {
           s.style.display = 'block';
           s.textContent = selected.service.name + ' — ' + selected.service.price_rub + ' ₽, ' + formatDateDisplay(selected.date) + ' в ' + selected.time;
           document.getElementById('submit').disabled = false;
+          if (typeof hideError === 'function') hideError();
+          if (WebApp && WebApp.MainButton) {
+            try {
+              WebApp.MainButton.setText('Записаться и перейти к оплате');
+              WebApp.MainButton.show();
+            } catch (e) {}
+          }
         } else {
           s.style.display = 'none';
           document.getElementById('submit').disabled = true;
+          if (WebApp && WebApp.MainButton) {
+            try { WebApp.MainButton.hide(); } catch (e) {}
+          }
         }
       }
 
-      document.getElementById('submit').onclick = function() {
-        if (!selected.service || !selected.date || !selected.time) return;
-        var payload = {
-          action: 'booking',
-          service_id: selected.service.id,
-          service_name: selected.service.name,
-          price_rub: selected.service.price_rub,
-          date: selected.date,
-          time: selected.time
-        };
-        if (WebApp && WebApp.sendData) {
-          WebApp.sendData(JSON.stringify(payload));
-        } else {
-          alert('Вы записаны: ' + selected.service.name + ', ' + selected.date + ' ' + selected.time + '. Вернитесь в бота для оплаты.');
+      if (WebApp && WebApp.MainButton) {
+        try {
+          WebApp.MainButton.onClick(function() {
+            if (sendBookingData()) WebApp.MainButton.showProgress();
+          });
+        } catch (e) {}
+      }
+
+      var submitBtn = document.getElementById('submit');
+      var submitError = document.getElementById('submit-error');
+      function hideError() { submitError.style.display = 'none'; submitError.textContent = ''; }
+      function doSubmit() {
+        if (!selected.service || !selected.date || !selected.time) {
+          submitError.textContent = 'Выберите услугу, дату и время.';
+          submitError.style.display = 'block';
+          return;
         }
-      };
+        hideError();
+        if (sendBookingData()) {
+          submitBtn.disabled = true;
+          submitBtn.textContent = 'Отправка...';
+        } else {
+          submitError.textContent = 'Откройте форму через бота в Telegram (кнопка «Запись на мойку») — тогда запись отправится.';
+          submitError.style.display = 'block';
+        }
+      }
+      submitBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        doSubmit();
+      });
+      submitBtn.addEventListener('touchend', function(e) {
+        e.preventDefault();
+        doSubmit();
+      });
 
       renderServices();
       renderDates();
