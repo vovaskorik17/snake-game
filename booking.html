@@ -3,8 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#1a1a2e">
   <title>Запись на мойку — Марафет Детейлинг</title>
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script>
+    window.Telegram = window.Telegram || {};
+    window.Telegram.WebApp = window.Telegram.WebApp || {};
+  </script>
+  <script src="https://telegram.org/js/telegram-web-app.js" crossorigin="anonymous" onerror="console.warn('Telegram script not loaded')"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -120,6 +125,7 @@
 </head>
 <body>
   <h1>Запись на мойку</h1>
+  <p id="browser-hint" style="display:none; font-size:0.85rem; opacity:0.9; margin-bottom:12px; padding:8px; background:rgba(255,255,255,0.08); border-radius:8px;">Открыто в браузере. После заполнения нажмите «Записаться» — откроется бот с вашей записью.</p>
 
   <div class="section">
     <div class="section-title">1. Выберите услугу</div>
@@ -150,14 +156,17 @@
 
   <div class="summary" id="summary" style="display:none;"></div>
   <button type="button" class="submit-btn" id="submit" disabled>Записаться и перейти к оплате</button>
+  <div id="submit-hint" style="display:none; margin-top:12px; padding:12px; border-radius:10px; background:rgba(74,222,128,0.2); color:#4ade80; font-size:0.9rem;"></div>
   <div id="submit-error" style="display:none; margin-top:12px; padding:12px; border-radius:10px; background:rgba(255,100,100,0.2); color:#ff6b6b; font-size:0.9rem;"></div>
 
   <script>
     (function() {
       var WebApp = (window.Telegram && window.Telegram.WebApp) || null;
-      if (WebApp) {
+      if (WebApp && WebApp.ready) {
         try { WebApp.ready(); } catch (e) {}
         try { if (WebApp.expand) WebApp.expand(); } catch (e) {}
+      } else {
+        document.getElementById('browser-hint').style.display = 'block';
       }
       var urlParams = new URLSearchParams(window.location.search);
       var botUsername = urlParams.get('bot') || 'marafet_detailing_bot';
@@ -169,11 +178,13 @@
       function buildBookingStartParam() {
         if (!selected.service || !selected.date || !selected.time) return '';
         var timePart = selected.time.replace(':', '-');
+        var base = 'book_' + selected.date + '_' + timePart + '_' + selected.service.id + '_';
+        var maxCarLen = 64 - base.length;
+        if (maxCarLen < 2) return base.substring(0, 64);
         var plate = transliterate((selected.car_plate || '').trim().replace(/\s/g, '')).substring(0, 9);
-        var model = transliterate((selected.car_model || '').trim().replace(/\s+/g, '_')).substring(0, 18);
-        var car = plate + '~' + model;
-        var full = 'book_' + selected.date + '_' + timePart + '_' + selected.service.id + '_' + car;
-        return full.substring(0, 64);
+        var model = transliterate((selected.car_model || '').trim().replace(/\s+/g, '_'));
+        var car = (plate + '~' + model).substring(0, maxCarLen - 1);
+        return base + car;
       }
 
       function openBookingViaLink() {
@@ -343,14 +354,27 @@
         submitBtn.disabled = true;
         submitBtn.textContent = 'Отправка...';
         if (WebApp && WebApp.MainButton) try { WebApp.MainButton.showProgress(); } catch (e) {}
-        if (openBookingViaLink()) {
-          if (WebApp && WebApp.close) try { WebApp.close(); } catch (e) {}
-        } else {
-          submitBtn.disabled = false;
-          submitBtn.textContent = 'Записаться и перейти к оплате';
-          submitError.textContent = 'Откройте форму через бота в Telegram.';
-          submitError.style.display = 'block';
+        // Показываем подсказку: куда смотреть после закрытия
+        var hint = document.getElementById('submit-hint');
+        if (hint) {
+          hint.style.display = 'block';
+          hint.textContent = 'Переходим в чат с ботом. Запись и кнопка оплаты появятся там.';
         }
+        function doOpen() {
+          // sendData не доходит до бота при открытии через InlineKeyboardButton — используем только ссылку
+          if (openBookingViaLink()) {
+            setTimeout(function() {
+              if (WebApp && WebApp.close) try { WebApp.close(); } catch (e) {}
+            }, 1500);
+          } else {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Записаться и перейти к оплате';
+            submitError.textContent = 'Откройте форму через бота в Telegram.';
+            submitError.style.display = 'block';
+            if (hint) hint.style.display = 'none';
+          }
+        }
+        setTimeout(doOpen, 600);
       }
 
       var submitBtn = document.getElementById('submit');
